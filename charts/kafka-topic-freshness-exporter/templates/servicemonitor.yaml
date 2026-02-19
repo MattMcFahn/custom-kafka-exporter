@@ -1,0 +1,14 @@
+{{- if .Values.serviceMonitor.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: {{ include "topic-freshness-exporter.fullname" . }}
+spec:
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: kafka-topic-freshness-exporter
+  endpoints:
+    - port: http
+      interval: {{ .Values.serviceMonitor.interval }}
+      path: /metrics
+{{- end }}

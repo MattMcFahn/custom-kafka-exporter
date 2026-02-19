@@ -1,0 +1,40 @@
+repos:
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v4.2.0
+    hooks:
+      - id: trailing-whitespace
+      - id: check-ast
+      - id: check-added-large-files
+        args: ['--maxkb=1000']
+      - id: debug-statements
+      - id: end-of-file-fixer
+      - id: mixed-line-ending
+        args: [ '--fix=auto' ]
+
+  # Python hooks
+  - repo: https://github.com/psf/black
+    rev: 25.11.0
+    hooks:
+    - id: black
+      args: [--config=pyproject.toml]
+
+  - repo: https://github.com/pycqa/isort
+    rev: 5.12.0
+    hooks:
+      - id: isort
+        name: isort (python)
+        args: [--sp=pyproject.toml]
+
+  - repo: local
+    hooks:
+        # Why: https://pylint.pycqa.org/en/stable/user_guide/installation/pre-commit-integration.html
+      - id: pylint
+        name: pylint
+        entry: pylint
+        language: system
+        types: [python]
+        require_serial: true
+        args:
+          [
+              "--rcfile=pyproject.toml"
+          ]

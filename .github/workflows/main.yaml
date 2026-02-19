@@ -1,0 +1,141 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+
+  lint-validate-test-app:
+    name: Pre-commit checks & tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Set up Python
+        run: uv python install 3.13
+
+      - name: Install dev dependencies
+        run: uv sync --all-groups
+
+      - name: Run pre-commit
+        run: uv run pre-commit run --all-files
+
+      - name: Bring up docker-compose
+        run: docker compose up -d
+
+      - name: Check broker health
+        run: |
+          ./.local/wait-for-kafka-setup.sh
+
+      - name: Run tests
+        run: |
+          uv run pytest --log-cli-level=INFO -s -vv --cov-report term-missing --cov=app tests --cov-report=xml:coverage.xml
+
+      - name: Show broker logs on failure
+        if: failure()
+        run: docker compose logs broker
+
+      - name: Tear down Kafka
+        if: always()
+        run: docker compose down -v
+
+      - name: Upload coverage report
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-report
+          path: coverage.xml
+
+  helm-lint:
+    name: Helm lint & template
+    runs-on: ubuntu-latest
+    needs: lint-validate-test-app
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Lint chart
+        run: |
+          helm lint charts/kafka-topic-freshness-exporter \
+            --set env.kafkaBootstrapServers=broker:9092 \
+            --set env.awsRegion=us-east-1
+
+      - name: Render chart templates
+        run: |
+          helm template freshness-test charts/kafka-topic-freshness-exporter \
+            --set env.kafkaBootstrapServers=broker:9092 \
+            --set env.awsRegion=us-east-1 \
+            --debug
+
+      - name: Render chart with ServiceMonitor disabled
+        run: |
+          helm template freshness-test charts/kafka-topic-freshness-exporter \
+            --set env.kafkaBootstrapServers=broker:9092 \
+            --set env.awsRegion=us-east-1 \
+            --set serviceMonitor.enabled=false
+
+  docker-build:
+    name: Docker build
+    runs-on: ubuntu-latest
+    needs: lint-validate-test-app
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build Docker image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: false
+          tags: kafka-topic-freshness-exporter:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+#  docker-push:
+#    name: Push to ECR
+#    runs-on: ubuntu-latest
+#    needs: [docker-build, helm-lint]
+#    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+#
+#    permissions:
+#      id-token: write
+#      contents: read
+#
+#    steps:
+#      - uses: actions/checkout@v4
+#
+#      - name: Configure AWS credentials (OIDC)
+#        uses: aws-actions/configure-aws-credentials@v4
+#        with:
+#          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+#          aws-region: ${{ secrets.AWS_REGION }}
+#
+#      - name: Login to Amazon ECR
+#        id: login-ecr
+#        uses: aws-actions/amazon-ecr-login@v2
+#
+#      - name: Set up Docker Buildx
+#        uses: docker/setup-buildx-action@v3
+#
+#      - name: Build and push
+#        uses: docker/build-push-action@v6
+#        with:
+#          context: .
+#          push: true
+#          tags: |
+#            ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:latest
+#            ${{ steps.login-ecr.outputs.registry }}/${{ secrets.ECR_REPOSITORY }}:${{ github.sha }}
+#          cache-from: type=gha
+#          cache-to: type=gha,mode=max

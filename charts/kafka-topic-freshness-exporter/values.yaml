@@ -1,0 +1,28 @@
+image:
+  repository: ""
+  tag: ""
+
+replicaCount: 1
+
+serviceAccount:
+  create: true
+  name: "kafka-connect-monitoring-connect"
+  annotations:
+    eks.amazonaws.com/role-arn: "<arn-role>"
+
+env:
+  kafkaBootstrapServers: ""
+  topicPrefix: "prefix-"
+  scrapeIntervalSeconds: 30
+  awsRegion: "eu-west-2"
+  kafkaSecurityProtocol: "SASL_SSL"
+  logLevel: "INFO"
+  consumerTimeoutMs: 3000
+  topicDiscoveryTimeoutS: "10.0"
+  metricsPort: 8000
+
+resources: {}
+
+serviceMonitor:
+  enabled: true
+  interval: 30s

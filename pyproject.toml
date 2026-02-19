@@ -1,0 +1,57 @@
+[project]
+name = "kafka-custom-metrics-exporter"
+version = "0.1.0"
+description = "Custom metric exports from Kafka to Prometheus / Grafana"
+requires-python = ">=3.13"
+dependencies = [
+    "aws-msk-iam-sasl-signer-python>=1.0.1",
+    "confluent-kafka>=2.13.0",
+    "prometheus-client>=0.24.1",
+    "pydantic>=2.12.5",
+    "pydantic-settings>=2.13.0",
+]
+
+
+[build-system]
+requires = ["uv_build"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""
+module-name = "app"
+
+[dependency-groups]
+dev = [
+    "black>=26.1.0",
+    "flake8>=7.3.0",
+    "mypy>=1.19.1",
+    "pre-commit>=4.5.1",
+    "pylint>=4.0.4",
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+]
+
+[tool.black]
+line-length = 120
+
+[tool.isort]
+profile = "black"
+src_paths = ["app"]
+
+[flake8]
+max-line-length = 120
+max-complexity = 18
+
+[tool.pylint.format]
+max-line-length = 120
+
+[tool.pylint.basic]
+# https://pylint.readthedocs.io/en/stable/user_guide/configuration/all-options.html
+variable-rgx = "[a-z_][a-z0-9_]{0,40}$"
+
+[tool.pylint.global]
+disable = ["fixme"]
+output-format = "colorized"
+
+[tool.coverage.run]
+omit = ["app/__*"]

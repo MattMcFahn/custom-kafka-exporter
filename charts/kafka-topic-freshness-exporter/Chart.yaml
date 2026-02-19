@@ -1,0 +1,9 @@
+apiVersion: v2
+name: kafka-topic-freshness-exporter
+description: Exports per-topic freshness metrics from Kafka to Prometheus
+
+type: application
+
+version: 0.0.1
+
+appVersion: "0.0.1"

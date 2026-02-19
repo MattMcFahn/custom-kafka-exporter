@@ -1,0 +1,59 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ include "topic-freshness-exporter.fullname" . }}
+  labels:
+    {{- include "topic-freshness-exporter.labels" . | nindent 4 }}
+spec:
+  replicas: {{ .Values.replicaCount }}
+  selector:
+    matchLabels:
+      {{- include "topic-freshness-exporter.selectorLabels" . | nindent 6 }}
+  template:
+    metadata:
+      labels:
+        {{- include "topic-freshness-exporter.selectorLabels" . | nindent 8 }}
+    spec:
+      serviceAccountName: "{{ .Values.serviceAccount.name }}"
+      containers:
+        - name: exporter
+          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
+          imagePullPolicy: Always
+          ports:
+            - name: http
+              containerPort: {{ .Values.env.metricsPort }}
+              protocol: TCP
+          env:
+            - name: KAFKA_BOOTSTRAP_SERVERS
+              value: {{ .Values.env.kafkaBootstrapServers | quote }}
+            - name: TOPIC_PREFIX
+              value: {{ .Values.env.topicPrefix | quote }}
+            - name: SCRAPE_INTERVAL_SECONDS
+              value: {{ .Values.env.scrapeIntervalSeconds | quote }}
+            - name: AWS_REGION
+              value: {{ .Values.env.awsRegion | quote }}
+            - name: KAFKA_SECURITY_PROTOCOL
+              value: {{ .Values.env.kafkaSecurityProtocol | quote }}
+            - name: LOG_LEVEL
+              value: {{ .Values.env.logLevel | quote }}
+            - name: CONSUMER_TIMEOUT_MS
+              value: {{ .Values.env.consumerTimeoutMs | quote }}
+            - name: TOPIC_DISCOVERY_TIMEOUT_S
+              value: {{ .Values.env.topicDiscoveryTimeoutS | quote }}
+            - name: METRICS_PORT
+              value: {{ .Values.env.metricsPort | quote }}
+          livenessProbe:
+            httpGet:
+              path: /metrics
+              port: http
+            initialDelaySeconds: 15
+            periodSeconds: 30
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /metrics
+              port: http
+            initialDelaySeconds: 10
+            periodSeconds: 15
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
